@@ -78,6 +78,39 @@ None of the defaults can be `allow`. The agent is only ever told "allowed", "nee
 
 Plus a `treasurer` subagent for payment work, and MCP tools `leash_pay`, `leash_status`, `leash_release`, `leash_dispute`, `leash_cancel`, `leash_balance`.
 
+## Review rule changes in pull requests
+
+The hook keeps the agent from editing `leash.config` on your machine. But agents also open pull requests, from the cloud or from CI. **Leash review** is a GitHub Action that watches every PR touching `leash.config`:
+
+- it explains each change in plain words, and whether it makes the leash **looser** or **tighter**;
+- it runs Break my leash on the new rules;
+- if the leash gets looser, the check fails until one of the owners approves the PR (and never the PR's own author).
+
+Add `.github/workflows/leash.yml`:
+
+```yaml
+name: Leash review
+on:
+  pull_request:
+    paths: [leash.config]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  pull_request_review:
+    types: [submitted, dismissed]
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  leash:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: michelelandini36-beep/leash/action@main
+        with:
+          owners: your-github-username   # who can approve a looser leash
+```
+
+Then make **Leash review** a required check in your branch protection, so a looser leash can't merge without you. Without `owners`, approval is the `leash-approved` label instead.
+
 ## Dry run and live
 
 Leash starts in **dry-run**: jobs are simulated (open → assigned → funded → paid → released), nothing is paid, and dry-run spending is kept apart from live budgets.

@@ -1,0 +1,29 @@
+name: Leash review
+description: Reviews pull requests that change leash.config. Explains every change, runs Break my leash on the new rules, and blocks the merge when the leash gets looser until an owner approves.
+author: Leash
+branding:
+  icon: lock
+  color: green
+inputs:
+  config:
+    description: Path to leash.config in the repo.
+    default: leash.config
+  owners:
+    description: Comma-separated GitHub usernames. A PR that loosens the rules needs an approving review from one of them (not the PR's author).
+    default: ''
+  approve-label:
+    description: Used when owners is empty. A PR that loosens the rules needs this label.
+    default: leash-approved
+  token:
+    description: Token used to read reviews and post the comment.
+    default: ${{ github.token }}
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: node "$GITHUB_ACTION_PATH/review.mjs"
+      env:
+        LEASH_CONFIG_PATH: ${{ inputs.config }}
+        LEASH_OWNERS: ${{ inputs.owners }}
+        LEASH_APPROVE_LABEL: ${{ inputs.approve-label }}
+        GITHUB_TOKEN: ${{ inputs.token }}
