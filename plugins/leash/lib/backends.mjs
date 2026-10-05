@@ -3,7 +3,7 @@
 //  live: the Leash network. Real USDG locks in the LeashEscrow contract, a real runner pays on the real app.
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { mode, stateDir } from './state.mjs';
 
 export const FINAL = ['released', 'refunded', 'expired', 'cancelled'];
@@ -126,6 +126,19 @@ function liveBackend(project) {
       // Picked up after a restart: keep driving a job that hasn't been funded yet.
       if (local && !local.funded && ['open', 'assigned'].includes(s.state)) drive(n, local);
       if (local?.error) s.error = local.error;
+      // A receipt file (image or PDF) is saved next to Leash's state, not pasted into the conversation.
+      const a = s.proof?.attachment || (s.proof?.screenshot ? { data: s.proof.screenshot, name: 'screenshot' } : null);
+      if (a && typeof a.data === 'string') {
+        const m = a.data.match(/^data:(image\/(png|jpe?g|gif|webp)|application\/pdf);base64,(.+)$/);
+        if (m) {
+          const dir = join(stateDir(project), 'proofs');
+          mkdirSync(dir, { recursive: true });
+          const file = join(dir, `${id.slice(0, 18)}.${m[1] === 'application/pdf' ? 'pdf' : m[2].replace('jpeg', 'jpg')}`);
+          writeFileSync(file, Buffer.from(m[3], 'base64'), { mode: 0o600 });
+          s.proof = { ...s.proof, attachment: { savedTo: file, type: m[1], name: a.name || null } };
+        } else s.proof = { ...s.proof, attachment: 'unsupported format, not saved' };
+        delete s.proof.screenshot;
+      }
       return s;
     },
     async release(id) { const n = await network(); return { tx: await n.release(id), ...(await n.status(id)) }; },
