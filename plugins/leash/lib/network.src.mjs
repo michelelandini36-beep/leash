@@ -40,7 +40,9 @@ export class LeashNetwork {
    * @param o.escrow      the escrow address this agent trusts. Required: the API can't redirect funds elsewhere.
    */
   constructor({ privateKey, apiUrl, escrow, rpcUrl, log = () => {} }) {
-    if (!/^0x[0-9a-fA-F]{64}$/.test(privateKey || '')) throw new Error('LEASH_AGENT_PRIVATE_KEY must be a 32-byte hex private key');
+    privateKey = String(privateKey || '').trim().replace(/^0x/i, ''); // MetaMask shows keys without 0x
+    if (!/^[0-9a-fA-F]{64}$/.test(privateKey)) throw new Error('LEASH_AGENT_PRIVATE_KEY must be a 32-byte hex private key');
+    privateKey = `0x${privateKey}`;
     if (!/^0x[0-9a-fA-F]{40}$/.test(escrow || '')) throw new Error('LEASH_ESCROW_ADDRESS must be set to the escrow you trust');
     this.account = privateKeyToAccount(privateKey);
     this.address = this.account.address.toLowerCase();
