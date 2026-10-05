@@ -1,0 +1,8 @@
+{
+  "name": "leash",
+  "version": "0.1.0",
+  "description": "Cash for agents, on a leash. Your agent pays real people on PayPal, Zelle, Venmo and more; the rules live in leash.config, which the agent can't read or change, and a PreToolUse hook checks every payment.",
+  "author": { "name": "Leash" },
+  "license": "MIT",
+  "keywords": ["payments", "agents", "mcp", "hooks", "escrow", "prompt-injection"]
+}

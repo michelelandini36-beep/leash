@@ -1,0 +1,13 @@
+{
+  "name": "leash",
+  "owner": { "name": "Leash" },
+  "metadata": { "description": "Cash for agents, on a leash." },
+  "plugins": [
+    {
+      "name": "leash",
+      "source": "./plugins/leash",
+      "description": "Let your agent pay real people on PayPal, Zelle, Venmo and more, only within the rules you keep in leash.config.",
+      "version": "0.1.0"
+    }
+  ]
+}
