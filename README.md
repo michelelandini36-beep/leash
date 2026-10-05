@@ -7,7 +7,7 @@
 - The rules live in **`leash.config`**, a file in your repo that the agent's tools are kept away from, and that it can't approve changes to.
 - A **PreToolUse hook** checks every `leash_pay` against it and answers **allow**, **ask** (you approve) or **deny**.
 - The **MCP server** checks the same rules again and only pays with a fresh receipt from the hook: skip the hook, nothing pays.
-- In live mode the money moves through the [nara-agent](https://usenara.cash) network: USDG locks in an on-chain escrow, a human runner pays from their own account, and it settles after 24 h unless you dispute.
+- In live mode the money moves through the **Leash network**: the agent's USDG locks in the LeashEscrow contract on Robinhood Chain, a human runner pays from their own account, and it settles after 24 h unless you dispute.
 
 ## Install
 
@@ -80,15 +80,28 @@ Plus a `treasurer` subagent for payment work, and MCP tools `leash_pay`, `leash_
 
 Leash starts in **dry-run**: jobs are simulated (open → assigned → funded → paid → released), nothing is paid, and dry-run spending is kept apart from live budgets.
 
-To pay for real:
+To pay for real, give the agent a wallet on Robinhood Chain with some USDG and a little ETH for gas, then:
 
 ```sh
-npm i https://usenara.cash/pkg/nara-agent-0.1.1.tgz   # in your project
 export LEASH_MODE=live
-export LEASH_AGENT_PRIVATE_KEY=0x...                 # the agent wallet: holds USDG + a little ETH for gas
+export LEASH_AGENT_PRIVATE_KEY=0x...     # the agent wallet
 ```
 
-Fees: the runner's fee (capped by you, never above 5%) and a 1% network fee. Limits: $1,000 per job, $5,000 per agent per day.
+No extra install: the network client ships inside the plugin. It only ever funds the mainnet LeashEscrow pinned in the plugin, [`0x62ed93d484724aD30D1Db63C78F6F2a9131ae876`](https://robinhoodchain.blockscout.com/address/0x62ed93d484724aD30D1Db63C78F6F2a9131ae876) (source verified on [Sourcify](https://repo.sourcify.dev/4663/0x62ed93d484724aD30D1Db63C78F6F2a9131ae876)); if the network's API ever points elsewhere, it refuses.
+
+What happens on a `leash_pay` that your rules allow:
+
+1. The job goes on the Leash job board with the amount, the app and a hint of the recipient (`@l…d`). Never the full details.
+2. A runner who pays on that app accepts and **signs the exact terms** (amount, fee, deadline).
+3. The plugin checks the signature and fee itself, **seals the recipient's details** to that runner only, approves exactly what the job costs and **funds the escrow**.
+4. The runner pays from their own app, seals a proof to you (and to the arbiter) and marks the job paid on-chain.
+5. After 24 h the escrow pays the runner. Use `leash_release` to settle early, or `leash_dispute` within 24 h if nothing arrived.
+
+If no runner takes the job within 30 minutes, it's withdrawn. If a runner doesn't mark it paid by the deadline, anyone can expire it and you get everything back.
+
+**Fees:** the runner's fee (capped by you, never above 5%) and a 1% platform fee, only on payments that go through. **Limits** (in the contract, forever): $1,000 per job, $5,000 per agent per day.
+
+**Runners:** [/runner](/runner/) on the website. **Disputes:** decided by the job's arbiter on the sealed proof; if the arbiter doesn't act in 30 days, the agent is refunded.
 
 ## What it guarantees, and what it doesn't
 
@@ -105,4 +118,4 @@ cd plugins/leash && npm test            # rules, hook, server end to end, Break 
 claude --plugin-dir ./plugins/leash      # try it in a session
 ```
 
-Leash is not a bank. Runners are independent people paying from their own accounts. Nothing here is financial advice.
+Leash is not a bank. Runners are independent people paying from their own accounts. The escrow contract has been tested and reviewed but not audited by a third party: see [Risks](/docs/risks/). Nothing here is financial advice.

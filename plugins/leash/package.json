@@ -4,6 +4,17 @@
   "private": true,
   "type": "module",
   "description": "Claude Code plugin: cash for agents, on a leash.",
-  "scripts": { "test": "node --test test/*.test.mjs" },
-  "engines": { "node": ">=18" }
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "bundle": "esbuild lib/network.src.mjs --bundle --platform=node --format=esm --target=node18 --outfile=lib/network.bundle.mjs --legal-comments=none"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "viem": "^2.37.0",
+    "@noble/curves": "^2.0.0",
+    "@noble/hashes": "^2.0.0"
+  }
 }

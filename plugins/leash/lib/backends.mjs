@@ -1,11 +1,10 @@
 // Where a payment actually goes once the rules said yes.
 //  dry-run (default): a simulated job that walks the same states as a real one. No money moves.
-//  live: the nara-agent SDK. Real USDG locks in the escrow, a real runner pays on the real app.
+//  live: the Leash network. Real USDG locks in the LeashEscrow contract, a real runner pays on the real app.
 import { randomBytes } from 'node:crypto';
-import { dirname, join } from 'node:path';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import { mode, stateDir, projectDir } from './state.mjs';
+import { join } from 'node:path';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { mode, stateDir } from './state.mjs';
 
 export const FINAL = ['released', 'refunded', 'expired', 'cancelled'];
 const LEASH_FEE = 0.01;
@@ -74,69 +73,70 @@ function dryRunBackend(project) {
   };
 }
 
-// ---------------- live (nara-agent) ----------------
-let liveAgent = null;
-const running = new Map(); // job id -> background promise, so a payment keeps going while the server lives
+// ---------------- live (the Leash network) ----------------
+// Real USDG locks in the LeashEscrow contract on Robinhood Chain; a Leash runner pays on the real app.
+let net = null;
+const driving = new Map(); // job id -> promise: posting -> runner accepts -> details sealed -> funded
 
-async function liveBackend(project) {
-  if (!liveAgent) {
-    const key = process.env.LEASH_AGENT_PRIVATE_KEY || process.env.NARA_AGENT_PRIVATE_KEY;
-    if (!key) throw new Error('Live mode needs LEASH_AGENT_PRIVATE_KEY (the agent wallet key) in the environment.');
-    const sdk = await importSdk(project);
-    liveAgent = sdk.createNaraAgent({
-      privateKey: key,
-      ...(process.env.NARA_BASE_URL ? { baseUrl: process.env.NARA_BASE_URL } : {}),
-      ...(process.env.NARA_CHAIN ? { chain: process.env.NARA_CHAIN } : {}),
-      ...(process.env.NARA_RPC_URL ? { rpcUrl: process.env.NARA_RPC_URL } : {}),
+async function network() {
+  if (!net) {
+    const { LeashNetwork } = await import('./network.bundle.mjs');
+    net = new LeashNetwork({
+      privateKey: process.env.LEASH_AGENT_PRIVATE_KEY,
+      // The mainnet LeashEscrow, pinned in the plugin: the API can't point the agent's money anywhere else.
+      escrow: process.env.LEASH_ESCROW_ADDRESS || '0x62ed93d484724aD30D1Db63C78F6F2a9131ae876',
+      apiUrl: process.env.LEASH_NETWORK_URL || 'https://leash-five.vercel.app',
+      rpcUrl: process.env.LEASH_RPC_URL,
+      log: m => process.stderr.write(`leash: ${m}\n`),
     });
   }
-  const a = liveAgent;
-  const view = j => ({
-    id: j.id, mode: 'live', state: j.state, rail: j.rail, to: j.recipientHint, amountUsd: j.amountUsd,
-    runner: j.runner ? { alias: j.runner.alias } : null, costs: j.costs, disputeWindowEndsAt: j.disputeWindowEndsAt ?? null,
-  });
-  const track = (id, done) => running.set(id, done.catch(e => process.stderr.write(`leash: job ${id}: ${e.message}\n`)).finally(() => running.delete(id)));
+  return net.init();
+}
+
+function liveBackend(project) {
+  const file = join(stateDir(project), 'live-jobs.json');
+  const load = () => { try { return JSON.parse(readFileSync(file, 'utf8')); } catch { return {}; } };
+  const save = (id, patch) => { const all = load(); all[id] = { ...all[id], ...patch }; writeFileSync(file, JSON.stringify(all, null, 2), { mode: 0o600 }); };
+
+  function drive(n, entry) {
+    if (driving.has(entry.id)) return;
+    const p = n.drive(entry, {})
+      .then(() => save(entry.id, { funded: true, error: null }))
+      .catch(e => save(entry.id, { error: e.message }))
+      .finally(() => driving.delete(entry.id));
+    driving.set(entry.id, p);
+  }
 
   return {
     name: 'live',
     async pay(req) {
-      const run = await a.startPayment({
-        rail: req.rail, to: req.to, amountUsd: req.amountUsd, ...(req.memo ? { memo: req.memo } : {}),
-        ...(req.maxFeeBps != null ? { maxFeeBps: req.maxFeeBps } : {}), autoRelease: false,
-      });
-      track(run.job.id, run.done);
-      return view(run.job.snapshot);
+      const n = await network();
+      const { job, salt, details } = await n.post_job({ rail: req.rail, to: req.to, amountUsd: req.amountUsd, memo: req.memo, maxFeeBps: req.maxFeeBps ?? 200 });
+      const entry = { id: job.id, salt, details, maxFeeBps: req.maxFeeBps ?? 200, createdAt: Date.now() };
+      save(job.id, entry);
+      drive(n, entry);
+      return { id: job.id, mode: 'live', state: 'open', rail: req.rail, amountUsd: req.amountUsd.toFixed(2),
+        note: 'Posted to Leash runners. Once one accepts, the USDG locks in the escrow and they pay on the app. Check with leash_status.' };
     },
     async status(id) {
-      if (!id) return (await a.jobs({ limit: 10 })).map(view);
-      const job = await a.job(id);
-      const snap = await job.status();
-      // Picked up again after a restart: keep driving a job that's still in flight.
-      if (!running.has(snap.id) && ['open', 'assigned'].includes(snap.state)) track(snap.id, (await a.resume(snap.id)).done);
-      return view(snap);
+      const n = await network();
+      if (!id) return (await n.list()).map(j => ({ id: j.id, state: j.state, rail: j.rail, amountUsd: j.amountUsd, to: j.recipientHint }));
+      const local = load()[id];
+      const s = await n.status(id);
+      // Picked up after a restart: keep driving a job that hasn't been funded yet.
+      if (local && !local.funded && ['open', 'assigned'].includes(s.state)) drive(n, local);
+      if (local?.error) s.error = local.error;
+      return s;
     },
-    async release(id) { return view((await (await a.job(id)).release()).job); },
-    async dispute(id) { return view((await (await a.job(id)).dispute({ shareWithArbiter: true })).job); },
-    async cancel(id) { return view(await (await a.job(id)).cancel()); },
-    async balance() {
-      const b = await a.balance();
-      return { mode: 'live', address: b.address, usdg: b.usdg.usd, eth: b.eth.eth, gasOk: b.gas.enough };
+    async release(id) { const n = await network(); return { tx: await n.release(id), ...(await n.status(id)) }; },
+    async dispute(id) { const n = await network(); return { tx: await n.dispute(id), ...(await n.status(id)) }; },
+    async cancel(id) {
+      const n = await network();
+      const s = await n.status(id);
+      if (['open', 'assigned'].includes(s.state)) { await n.close(id); save(id, { error: 'closed by the agent', funded: true }); return { id, state: 'closed' }; }
+      if (s.state === 'funded' && s.payDeadline && Date.parse(s.payDeadline) <= Date.now()) return { tx: await n.expire(id), ...(await n.status(id)) };
+      throw new Error(`job is ${s.state}: a funded job refunds by itself if the runner doesn't pay by ${s.payDeadline}, or the runner can cancel it`);
     },
+    async balance() { const n = await network(); return { mode: 'live', ...(await n.balance()) }; },
   };
-}
-
-async function importSdk(project) {
-  // The project's own install first, then one next to the plugin.
-  // (The package is ESM-only with an "import" export, so look for it on disk rather than require.resolve.)
-  for (const start of [projectDir(project), fileURLToPath(new URL('..', import.meta.url))]) {
-    for (let d = start; ; d = dirname(d)) {
-      const pkg = join(d, 'node_modules', 'nara-agent', 'package.json');
-      if (existsSync(pkg)) {
-        const main = JSON.parse(readFileSync(pkg, 'utf8')).exports?.['.']?.import || './dist/index.js';
-        return await import(pathToFileURL(join(dirname(pkg), main)).href);
-      }
-      if (dirname(d) === d) break;
-    }
-  }
-  throw new Error('Live mode needs the nara-agent SDK: npm i https://usenara.cash/pkg/nara-agent-0.1.1.tgz');
 }
