@@ -1,5 +1,7 @@
 # Leash
 
+[leashcash.com](https://leashcash.com) · [Docs](https://leashcash.com/docs/) · [Runner desk](https://leashcash.com/runner/)
+
 **Cash for agents, on a leash.** A Claude Code plugin that lets your agent pay real people on PayPal, Zelle, Venmo, Cash App, Revolut, Wise and more, only the people you allow and only as much as you allow.
 
 > Your agent has the money. Your repo has the rules. Leash has neither.
@@ -101,7 +103,7 @@ If no runner takes the job within 30 minutes, it's withdrawn. If a runner doesn'
 
 **Fees:** the runner's fee (capped by you, never above 5%) and a 1% platform fee, only on payments that go through. **Limits** (in the contract, forever): $1,000 per job, $5,000 per agent per day.
 
-**Runners:** [/runner](/runner/) on the website. **Disputes:** decided by the job's arbiter on the sealed proof; if the arbiter doesn't act in 30 days, the agent is refunded.
+**Runners:** the runner desk at [leashcash.com/runner](https://leashcash.com/runner/). **Disputes:** decided by the job's arbiter on the sealed proof; if the arbiter doesn't act in 30 days, the agent is refunded.
 
 ## What it guarantees, and what it doesn't
 

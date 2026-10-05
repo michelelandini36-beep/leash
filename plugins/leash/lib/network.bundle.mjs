@@ -24618,7 +24618,7 @@ ${keccak256(toHex(bodyText || ""))}`;
 var LeashNetwork = class {
   /**
    * @param o.privateKey  the agent wallet
-   * @param o.apiUrl      the network's API (https://leash-five.vercel.app)
+   * @param o.apiUrl      the network's API (https://leashcash.com)
    * @param o.escrow      the escrow address this agent trusts. Required: the API can't redirect funds elsewhere.
    */
   constructor({ privateKey, apiUrl, escrow, rpcUrl, log = () => {

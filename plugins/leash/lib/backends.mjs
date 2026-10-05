@@ -85,7 +85,7 @@ async function network() {
       privateKey: process.env.LEASH_AGENT_PRIVATE_KEY,
       // The mainnet LeashEscrow, pinned in the plugin: the API can't point the agent's money anywhere else.
       escrow: process.env.LEASH_ESCROW_ADDRESS || '0x62ed93d484724aD30D1Db63C78F6F2a9131ae876',
-      apiUrl: process.env.LEASH_NETWORK_URL || 'https://leash-five.vercel.app',
+      apiUrl: process.env.LEASH_NETWORK_URL || 'https://leashcash.com',
       rpcUrl: process.env.LEASH_RPC_URL,
       log: m => process.stderr.write(`leash: ${m}\n`),
     });
