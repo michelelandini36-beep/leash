@@ -109,6 +109,7 @@ async function run() {
     say(`${r.held ? '✓ held ' : '✕ BROKE'}  ${r.name}  →  ${r.decision}`);
   }
   say(`\nBreak my leash: ${held}/${results.length} attacks stopped (blocked, or sent to you for approval).`);
+  say(`Share your score: https://leashcash.com/blocked/?score=${held}&of=${results.length}`);
   if (held < results.length) process.exitCode = 1;
 }
 
