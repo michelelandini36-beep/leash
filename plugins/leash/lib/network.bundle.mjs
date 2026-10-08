@@ -24679,7 +24679,7 @@ var LeashNetwork = class {
   }
   // ---------------------------------------------------------------- payments
   /** Posts the job and returns it at once; `drive()` takes it the rest of the way. */
-  async post_job({ rail, to, amountUsd, memo, maxFeeBps = 200, payWindowMin = 60 }) {
+  async post_job({ rail, to, amountUsd, memo, maxFeeBps = 500, payWindowMin = 60 }) {
     await this.init();
     const salt = toHex(globalThis.crypto.getRandomValues(new Uint8Array(32)));
     const hint = String(to).length > 4 ? `${String(to).slice(0, 2)}\u2026${String(to).slice(-2)}` : "\u2026";
@@ -24687,7 +24687,7 @@ var LeashNetwork = class {
     return { job, salt, details: { rail, to, amountUsd, memo: memo || "" } };
   }
   /** Waits for a runner, seals the details for them, approves exactly the job's cost and funds the escrow. */
-  async drive({ id, salt, details, maxFeeBps = 200 }, { timeoutMs = 30 * 6e4, signal } = {}) {
+  async drive({ id, salt, details, maxFeeBps = 500 }, { timeoutMs = 30 * 6e4, signal } = {}) {
     await this.init();
     const until = Date.now() + timeoutMs;
     let job;
@@ -24768,6 +24768,7 @@ var LeashNetwork = class {
         out.proof = "unreadable";
       }
     }
+    if (job.state === "paid") out.next = `The runner says they paid. Ask the user whether the recipient got the money: if yes, call leash_release so the runner is paid now; if it never arrived, call leash_dispute before ${out.disputeWindowEndsAt || "the 24 h window ends"}. Otherwise it settles to the runner by itself then.`;
     return out;
   }
   async list() {

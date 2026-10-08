@@ -111,8 +111,8 @@ function liveBackend(project) {
     name: 'live',
     async pay(req) {
       const n = await network();
-      const { job, salt, details } = await n.post_job({ rail: req.rail, to: req.to, amountUsd: req.amountUsd, memo: req.memo, maxFeeBps: req.maxFeeBps ?? 200 });
-      const entry = { id: job.id, salt, details, maxFeeBps: req.maxFeeBps ?? 200, createdAt: Date.now() };
+      const { job, salt, details } = await n.post_job({ rail: req.rail, to: req.to, amountUsd: req.amountUsd, memo: req.memo, maxFeeBps: req.maxFeeBps ?? 500 });
+      const entry = { id: job.id, salt, details, maxFeeBps: req.maxFeeBps ?? 500, createdAt: Date.now() };
       save(job.id, entry);
       drive(n, entry);
       return { id: job.id, mode: 'live', state: 'open', rail: req.rail, amountUsd: req.amountUsd.toFixed(2),

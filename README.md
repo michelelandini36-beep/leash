@@ -34,7 +34,7 @@ Requires Node 18+.
 [limits]
 per_job_usd = 1000     # network cap 1000
 per_day_usd = 1500     # network cap 5000
-max_fee_bps = 200      # runner fee cap, 200 = 2% (network cap 5%)
+max_fee_bps = 500      # runner fee cap, 500 = 5% (the network cap)
 
 [[allow]]
 name    = "landlord"
@@ -130,11 +130,11 @@ What happens on a `leash_pay` that your rules allow:
 2. A runner who pays on that app accepts and **signs the exact terms** (amount, fee, deadline).
 3. The plugin checks the signature and fee itself, **seals the recipient's details** to that runner only, approves exactly what the job costs and **funds the escrow**.
 4. The runner pays from their own app, seals a proof to you (and to the arbiter) and marks the job paid on-chain.
-5. After 24 h the escrow pays the runner. Use `leash_release` to settle early, or `leash_dispute` within 24 h if nothing arrived.
+5. After 24 h the escrow pays the runner. The runner fronted the money, so once the recipient confirms, use `leash_release` to pay them now; use `leash_dispute` within 24 h if nothing arrived.
 
-If no runner takes the job within 30 minutes, it's withdrawn. If a runner doesn't mark it paid by the deadline, anyone can expire it and you get everything back.
+If no runner pays on that app yet, `leash_pay` says so at once and nothing is posted. If no runner takes the job within 30 minutes, it's withdrawn. If a runner doesn't mark it paid by the deadline, anyone can expire it and you get everything back.
 
-**Fees:** the runner's fee (capped by you, never above 5%) and a 1% platform fee, only on payments that go through. **Limits** (in the contract, forever): $1,000 per job, $5,000 per agent per day.
+**Fees:** the runner's fee (capped by your `max_fee_bps`, 5% when unset, never above 5%) and a 1% platform fee, only on payments that go through. **Limits:** $20 minimum per job (so it's worth a runner's time); $1,000 per job and $5,000 per agent per day, in the contract, forever.
 
 **Runners:** the runner desk at [leashcash.com/runner](https://leashcash.com/runner/). **Disputes:** decided by the job's arbiter on the sealed proof; if the arbiter doesn't act in 30 days, the agent is refunded.
 

@@ -21,7 +21,7 @@ const TOOLS = [
       properties: {
         rail: { type: 'string', description: 'Payment app: paypal, zelle, venmo, cashapp, revolut, wise, applecash, googlepay, sepa, bank_us, ...' },
         to: { type: 'string', description: 'The recipient on that app: @handle, email, phone or IBAN, exactly as the user gave it.' },
-        amount_usd: { type: 'number', description: 'Amount in US dollars the recipient should receive.' },
+        amount_usd: { type: 'number', description: 'Amount in US dollars the recipient should receive (from 20 to 1,000).' },
         memo: { type: 'string', description: 'What the payment is for, shown to the recipient.' },
         max_fee_bps: { type: 'integer', description: 'Optional cap on the runner fee, in basis points (150 = 1.5%).' },
       },
@@ -59,6 +59,8 @@ async function pay(args) {
   const loaded = loadConfig(project);
   if (loaded.missing) throw new Error('There is no leash.config in this project. Ask the user to run /leash setup.');
   const req = canonical(args);
+  // No cap from the agent: use the owner's max_fee_bps (5% if unset), so runners are paid what the owner allows.
+  if (req.maxFeeBps === null) req.maxFeeBps = loaded.cfg.limits.maxFeeBps;
 
   // Lock 1 (the hook) must have seen exactly this request.
   const receipt = takeReceipt(project, args);
